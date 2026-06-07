@@ -28,6 +28,7 @@ export const createRefreshToken = (userID: string, tokenVersion: number) => {
   });
 };
 
+//verify Refresh Token
 export const verifyRefreshRoken = (token: string) => {
   const refreshKey = process.env.JWT_REFRESH_SECRET;
   if (!refreshKey || typeof refreshKey !== "string") {
@@ -36,6 +37,21 @@ export const verifyRefreshRoken = (token: string) => {
 
   return jwt.verify(token, refreshKey) as {
     sub: string;
+    tokenVersion: number;
+  };
+};
+
+//verify Access Token
+
+export const verifyAccessToken = (token: string) => {
+  const accessKey = process.env.JWT_ACCESS_SECRET;
+  if (!accessKey || typeof accessKey !== "string") {
+    throw new Error("JWT Token token is invalid or not present");
+  }
+
+  return jwt.verify(token, accessKey) as {
+    sub: string;
+    role: "user" | "admin";
     tokenVersion: number;
   };
 };
