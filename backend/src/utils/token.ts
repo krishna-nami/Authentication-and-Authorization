@@ -48,10 +48,13 @@ export const verifyAccessToken = (token: string) => {
   if (!accessKey || typeof accessKey !== "string") {
     throw new Error("JWT Token token is invalid or not present");
   }
-
-  return jwt.verify(token, accessKey) as {
-    sub: string;
-    role: "user" | "admin";
-    tokenVersion: number;
-  };
+  try {
+    return jwt.verify(token, accessKey) as {
+      sub: string;
+      role: "user" | "admin";
+      tokenVersion: number;
+    };
+  } catch (error) {
+    console.error("Invalid Token", error);
+  }
 };
