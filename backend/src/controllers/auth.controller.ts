@@ -65,9 +65,14 @@ export const userRegister = async (req: Request, res: Response) => {
     );
 
     const urlLink = `${getUrl()}/auth/verify-email?token=${verifyToken}`;
+    const reciepentEmail =
+      process.env.NODE_ENV === "production"
+        ? newUser.email
+        : "fullbrightmoonis.me@gmail.com";
+    console.log(reciepentEmail);
 
     await sendEmail(
-      newUser.email,
+      reciepentEmail,
       "Please Verify your email",
       `<p>Please verify your email by clicking the link Below:</p>
       <p> <a href="${urlLink}"> ${urlLink}</a></p>
