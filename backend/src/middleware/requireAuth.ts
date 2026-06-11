@@ -47,9 +47,7 @@ export const requireAuth = async (
       });
     }
 
-    const authReq = req as any;
-
-    authReq.user = {
+    req.user = {
       id: user.id,
       email: user.email,
       name: user.name,

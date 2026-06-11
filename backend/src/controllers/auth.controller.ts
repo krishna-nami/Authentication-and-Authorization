@@ -15,9 +15,30 @@ import {
   verifyRefreshRoken,
 } from "../utils/token.js";
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
+import { platform } from "os";
+import { sendError, sendSuccess } from "../utils/errorsHandler.js";
 
 const getUrl = () => {
   return process.env.APP_URL || `http://localhost:${process.env.PORT}`;
+};
+const getGoogleClient = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google Client or secret is missing");
+  }
+  if (!redirectUri) {
+    throw new Error("Redirect Uri is missing");
+  }
+
+  return new OAuth2Client({
+    clientId,
+    clientSecret,
+    redirectUri,
+  });
 };
 
 export const userRegister = async (req: Request, res: Response) => {
@@ -380,5 +401,126 @@ export const resetPasswordHandler = async (req: Request, res: Response) => {
     res.status(500).json({
       message: "Internal Server Errror",
     });
+  }
+};
+
+export const googleAuthHandler = async (req: Request, res: Response) => {
+  try {
+    const client = getGoogleClient();
+
+    const url = client.generateAuthUrl({
+      access_type: "offline",
+      prompt: "consent",
+      scope: ["openid", "email", "profile"],
+    });
+    return res.redirect(url);
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+export const googleCallbackHandler = async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined;
+  if (!code) {
+    return res.status(400).json({
+      message: "Missing code in callback",
+    });
+  }
+
+  try {
+    const client = getGoogleClient();
+
+    const { tokens } = await client.getToken(code);
+
+    if (!tokens.id_token) {
+      return res.status(400).json({
+        message: "No google Id token is present.",
+      });
+    }
+    //verify ID token and read the user info from it.
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID as string,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload) {
+      return res.status(400).json({
+        message: "Please use the valid email to verified",
+      });
+    }
+
+    const email = payload.email;
+    const emailVerified = payload.email_verified;
+    const profile = payload?.name;
+
+    if (!email || !emailVerified) {
+      return sendError(res, 400, "Google email not exist or is not verified");
+    }
+
+    const normalizeEmail = email?.toLowerCase().trim();
+
+    let user = await User.findOne({ email: normalizeEmail });
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(16).toString("hex");
+
+      const passwordHash = await hashPassword(randomPassword);
+
+      user = await User.create({
+        email: normalizeEmail,
+        passwordHash,
+        role: "user",
+        name: payload.name ?? null,
+        isEmailVerified: true,
+        twoFactorEnabled: false,
+      });
+    } else {
+      if (!user.isEmailVerified) {
+        user.isEmailVerified = true;
+        await user.save();
+      }
+    }
+    const accessToken = createAccessToken(
+      user.id,
+      user.role as "user" | "admin",
+      user.tokenVersion,
+    );
+
+    const refreshToken = createRefreshToken(user.id, user.tokenVersion);
+    const isProd = process.env.NODE_ENV === "production";
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    const data = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified,
+    };
+
+    return sendSuccess(
+      res,
+      200,
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
+      "Login Successful with the Email",
+      accessToken,
+    );
+  } catch (error) {
+    console.log(error);
+    return sendError(res, 500, "Internal Server Error");
   }
 };

@@ -7,6 +7,8 @@ import {
   logoutHandler,
   forgetPasswordHandler,
   resetPasswordHandler,
+  googleAuthHandler,
+  googleCallbackHandler,
 } from "../controllers/auth.controller.js";
 
 const authRoutes = Router();
@@ -19,4 +21,6 @@ authRoutes.post("/refresh", refreshHandler);
 authRoutes.post("/logout", logoutHandler);
 authRoutes.post("/forgetPassword", forgetPasswordHandler);
 authRoutes.post("/resetPassword", resetPasswordHandler);
+authRoutes.get("/google", googleAuthHandler);
+authRoutes.get("/google/callback", googleCallbackHandler);
 export default authRoutes;

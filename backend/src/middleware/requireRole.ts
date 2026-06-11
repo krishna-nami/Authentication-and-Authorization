@@ -4,16 +4,14 @@ import { fa } from "zod/locales";
 
 export const requireRole = (role: "user" | "admin") => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const authReq = req as any;
-
-    if (!authReq.user) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "unauthorized",
+        message: "You are unauthorized User",
       });
     }
 
-    if (authReq.user.role !== role) {
+    if (req.user.role !== role) {
       return res.status(403).json({
         success: false,
         message: "You are Forbidden to access this permission",
