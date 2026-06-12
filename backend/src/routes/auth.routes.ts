@@ -9,7 +9,9 @@ import {
   resetPasswordHandler,
   googleAuthHandler,
   googleCallbackHandler,
+  twofacorSetupHandler,
 } from "../controllers/auth.controller.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const authRoutes = Router();
 
@@ -23,4 +25,5 @@ authRoutes.post("/forgetPassword", forgetPasswordHandler);
 authRoutes.post("/resetPassword", resetPasswordHandler);
 authRoutes.get("/google", googleAuthHandler);
 authRoutes.get("/google/callback", googleCallbackHandler);
+authRoutes.post("/2Fa/setUp", requireAuth, twofacorSetupHandler);
 export default authRoutes;

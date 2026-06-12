@@ -18,6 +18,7 @@ import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { platform } from "os";
 import { sendError, sendSuccess } from "../utils/errorsHandler.js";
+import { generateSecret, generateURI } from "otplib";
 
 const getUrl = () => {
   return process.env.APP_URL || `http://localhost:${process.env.PORT}`;
@@ -456,7 +457,6 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
 
     const email = payload.email;
     const emailVerified = payload.email_verified;
-    const profile = payload?.name;
 
     if (!email || !emailVerified) {
       return sendError(res, 400, "Google email not exist or is not verified");
@@ -500,12 +500,6 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    const data = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      isEmailVerified: user.isEmailVerified,
-    };
 
     return sendSuccess(
       res,
@@ -522,5 +516,38 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
   } catch (error) {
     console.log(error);
     return sendError(res, 500, "Internal Server Error");
+  }
+};
+
+export const twofacorSetupHandler = async (req: Request, res: Response) => {
+  if (!req.user) {
+    return sendError(res, 401, "User is not authenticated");
+  }
+
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return sendError(res, 404, "User not found");
+    }
+
+    const secret = generateSecret();
+    const issuer = "NodeAuthApplication";
+    const optAuthURl = generateURI({ label: user.email, issuer, secret });
+
+    user.twoFactorSecret = secret;
+    user.twoFactorEnabled = false;
+
+    await user.save();
+
+    return res.json({
+      message: "2FA authenticatin setup is done",
+      optAuthURl,
+      secret,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return sendError(res, 500, "Internal server Error");
   }
 };

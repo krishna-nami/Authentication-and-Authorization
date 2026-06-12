@@ -6,7 +6,7 @@ declare global {
       user?: {
         id: string;
         email: string;
-        name: string;
+        name?: string | null;
         role: "user" | "admin";
         isEmailVerified: boolean;
       };

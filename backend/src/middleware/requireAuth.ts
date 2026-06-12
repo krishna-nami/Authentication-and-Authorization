@@ -50,7 +50,7 @@ export const requireAuth = async (
     req.user = {
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: user.name ?? null,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
     };
