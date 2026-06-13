@@ -9,6 +9,7 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(6),
+  twoFactorCode: z.string().optional(),
 });
 export const forgetPasswordSchema = z.object({
   email: z.email({ message: "Invalid Email Format" }),

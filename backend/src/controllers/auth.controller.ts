@@ -18,7 +18,7 @@ import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { platform } from "os";
 import { sendError, sendSuccess } from "../utils/errorsHandler.js";
-import { generateSecret, generateURI } from "otplib";
+import { generateSecret, generateURI, TOTP, verify } from "otplib";
 
 const getUrl = () => {
   return process.env.APP_URL || `http://localhost:${process.env.PORT}`;
@@ -171,7 +171,7 @@ export const loginHander = async (req: Request, res: Response) => {
       });
     }
 
-    const { email, password } = result.data;
+    const { email, password, twoFactorCode } = result.data;
 
     const normalizeEmail = email.toLowerCase().trim();
 
@@ -197,6 +197,25 @@ export const loginHander = async (req: Request, res: Response) => {
         success: false,
         message: "Please Verify your email before login",
       });
+    }
+
+    //for two factor authentication, after user check with user name and password, we redirect user
+    //to check code to verify2FA code. Then only the user can login(if 2FA is enabled.)
+
+    if (user.twoFactorEnabled) {
+      if (!twoFactorCode) {
+        return sendError(res, 400, "Two Factor code is required");
+      }
+      if (!user.twoFactorSecret) {
+        return sendError(res, 400, "you havenot set 2FA secret correctly");
+      }
+      const isValid = await verify({
+        token: twoFactorCode,
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid.valid) {
+        return sendError(res, 400, "Invalid two Factor code");
+      }
     }
 
     const accessToken = createAccessToken(
@@ -548,6 +567,49 @@ export const twofacorSetupHandler = async (req: Request, res: Response) => {
   } catch (error) {
     console.log(error);
 
+    return sendError(res, 500, "Internal server Error");
+  }
+};
+
+export const twoFactorVerifyHandler = async (req: Request, res: Response) => {
+  if (!req.user) {
+    return sendError(res, 401, "You are not authorized");
+  }
+
+  try {
+    const { code } = req.body as { code: string };
+    if (!code) {
+      return sendError(res, 400, "Two Factor code is required");
+    }
+    console.log(code);
+    const user = await User.findById(req.user.id);
+    console.log(user?.twoFactorSecret);
+
+    if (!user) {
+      return sendError(res, 404, "User not found");
+    }
+
+    if (!user.twoFactorSecret) {
+      return sendError(res, 400, "You dont have two factor Authentication yet");
+    }
+
+    const isValid = await verify({ token: code, secret: user.twoFactorSecret });
+
+    if (!isValid.valid) {
+      console.log(isValid);
+      return sendError(res, 400, "Invalid two Factor code");
+    }
+
+    user.twoFactorEnabled = true;
+
+    await user.save();
+
+    return res.json({
+      message: "2FA enabled successfylly",
+      twofactorEnabled: true,
+    });
+  } catch (error) {
+    console.log(error);
     return sendError(res, 500, "Internal server Error");
   }
 };

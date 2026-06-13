@@ -10,6 +10,7 @@ import {
   googleAuthHandler,
   googleCallbackHandler,
   twofacorSetupHandler,
+  twoFactorVerifyHandler,
 } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
@@ -26,4 +27,6 @@ authRoutes.post("/resetPassword", resetPasswordHandler);
 authRoutes.get("/google", googleAuthHandler);
 authRoutes.get("/google/callback", googleCallbackHandler);
 authRoutes.post("/2Fa/setUp", requireAuth, twofacorSetupHandler);
+authRoutes.post("/2Fa/verify", requireAuth, twoFactorVerifyHandler);
+
 export default authRoutes;
